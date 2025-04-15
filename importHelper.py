@@ -76,53 +76,48 @@ def grade_file_is_valid(gradesfile):
         header = next(reader)
         # Get the number of columns in the header
         num_columns = len(header)
-        for row in reader:
+        for i, row in enumerate(reader):
             if len(row) != num_columns:
-                print("Invalid grades file. Please check the file and try again.")
+                print(f"Invalid grades file, number of columns in row {i} doesn't match header.")
+                print("Please check the file and try again.")
                 return False
     print("Grades file seems valid.")
     return True
 
-def get_nongraded_assinments(grades_file, import_type)->list[int]:
-    """ Open the grades file and look for assignments that aren't graded.
-    CodeHS files have multiple header rows. The first row has the first and last
-    name in the first two columns. Assignment names begin in the 9th column of
-    the first row and continue until the last column.
-    The third row contains the Activity type.
-    Assignments that are not graded include: Video, Example, Survey and Badge.
-    Return a list of indices of the assignments that are not graded."""
-    
-    # Open the grades file and look for assignments that aren't graded.
+
+def getGradedAssignments(grades_file, import_type)->list[int]:
+    """Open the grades file and get the list of graded assignments"""
+    graded_indices = []
+    if import_type == 'P':
+        graded_indices = get_ProjectStem_graded_assignments(grades_file)
+    elif import_type == 'C':
+        graded_indices = get_CodeHS_graded_assignments(grades_file)
+    return graded_indices
+
+def get_CodeHS_graded_assignments(grades_file)->list[int]:
     with open(grades_file, 'r') as file:
         reader = csv.reader(file)
-        header = next(reader)
-        # Get the indices of the assignments
-        assignment_indices = list(range(8, len(header)))
-        # Get the assignment names
-        assignment_names = header[8:]
-        # Get the activity types
-        activity_types = next(reader)[8:]
-        # Check if the activity types are valid
-        if len(activity_types) != len(assignment_names):
-            print("Invalid grades file. Please check the file and try again.")
-            return []
-        # Get the indices of the assignments that are not graded
-        nongraded_indices = []
-        for i, activity_type in enumerate(activity_types):
-            if activity_type in ['Video', 'Example', 'Survey', 'Badge']:
-                nongraded_indices.append(i)
-        return nongraded_indices
+        # We don't need the first or second row.
+        _ = next(reader)
+        _ = next(reader)
+        # Get the all the assignments
+        assignment_types = next(reader)[:]
+        # Get the indices of the assignments that are graded
+        graded_indices = []
+        for i, assignment_type in enumerate(assignment_types):
+            if assignment_type.strip().lower() in ['check for understanding', 'exercise', 'unit quiz']:
+                graded_indices.append(i)
+        return graded_indices
 
-def remove_indices_from_list(lst, indices:List[int])-> bool:
-    """Remove indices from a list."""
-    #check if the indices are valid
-    indices.sort()
-    if indices[0] < 0 or indices[-1] >= len(lst):
-        print("Invalid indices. Please check the indices and try again.")
-        return False
-    for i in reversed(indices):
-        lst.pop(i)
-    return True
+def get_ProjectStem_graded_assignments(grades_file)->list[int]:
+    """All of the assignments are graded in ProjectStem, so we just need to 
+    get the length of the header and remove the first two items"""
+    with open(grades_file, 'r') as file:
+        reader = csv.reader(file)
+    header = next(reader)
+    num_columns = len(header)
+    return [ i for i in range(2, num_columns)]
+    
 
 def roster_file_is_valid(roster_file)->bool:
     """Open the roster file and ensure all the students have a first name, last
@@ -165,6 +160,9 @@ if __name__ == "__main__":
     if not roster_file_is_valid(roster_file):
         print("Invalid roster file. Please check the file and try again.")
         exit(1)
+    # Get the indices of the assignments that are not graded
+    graded_assigments = getGradedAssignments(grades_file, import_type)
+    print(f"Graded assignments: {graded_assigments}")
 
 
 
