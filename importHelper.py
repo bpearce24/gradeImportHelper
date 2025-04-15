@@ -14,6 +14,24 @@ from typing import List
 # - what range of assignments to import 
 # (eg CodeHS: 8.1.3-8.3.9 or ProjectStem 5.4 - 5.8)
 
+def main():
+    # Get information from the user
+    import_type = get_grade_import_type()
+    roster_file, grades_file, output_file = get_file_paths()
+    assignment_range = get_assignment_range(import_type)
+    # Check if the grades file is valid
+    if not grade_file_is_valid(grades_file):
+        print("Invalid grades file. Please check the file and try again.")
+        exit(1)
+    # Check if the roster file is valid
+    if not roster_file_is_valid(roster_file):
+        print("Invalid roster file. Please check the file and try again.")
+        exit(1)
+    # Get the indices of the assignments that are not graded
+    graded_assigments = getGradedAssignments(grades_file, import_type)
+    print(f"Graded assignments: {graded_assigments}")
+
+
 def get_grade_import_type():
     """Prompt the user for the grade import type and return it."""
     while True:
@@ -22,6 +40,14 @@ def get_grade_import_type():
             return grade_import_type
         else:
             print("Invalid input. Please enter 'P' for ProjectStem or 'C' for CodeHS.")
+
+def get_file_paths():
+    """Prompt the user for file paths and return them."""
+    roster_file = get_file_path("Enter the path to the roster file: ")
+    grades_file = get_file_path("Enter the path to the grades file: ")
+    output_file = input("Enter the name of the output file: ")
+    return roster_file, grades_file, output_file
+
 
 def get_file_path(prompt):
     """Prompt the user for a file path and return it."""
@@ -32,13 +58,6 @@ def get_file_path(prompt):
         else:
             print(f"File not found: {file_path}. Please try again.")
 
-
-def get_file_paths():
-    """Prompt the user for file paths and return them."""
-    roster_file = get_file_path("Enter the path to the roster file: ")
-    grades_file = get_file_path("Enter the path to the grades file: ")
-    output_file = input("Enter the name of the output file: ")
-    return roster_file, grades_file, output_file
 
 def get_assignment_range(import_type):
     """Prompt the user for the assignment range for ProjectStem and return it."""
@@ -85,6 +104,33 @@ def grade_file_is_valid(gradesfile):
     return True
 
 
+def roster_file_is_valid(roster_file)->bool:
+    """Open the roster file and ensure all the students have a first name, last
+    name and unique user id. """
+    with open(roster_file, 'r') as file:
+        reader = csv.reader(file)
+        header = next(reader)
+        if 'First Name' not in header or 'Last Name' not in header or 'Unique User ID' not in header:
+            print("Roster file must contain 'First Name', 'Last Name', and 'Unique User ID' columns.")
+            return False
+        if header[2] != 'Unique User ID':
+            print("Roster file must contain 'Unique User ID' in the third column of the header row.")
+            return False
+        for row in reader:
+            if len(row) < 3:
+                print("Roster file must contain at least 3 columns.")
+                return False
+            #ensure that first last and unique id arn't empty strings
+            first_name = row[header.index('First Name')]
+            last_name = row[header.index('Last Name')]
+            unique_id = row[header.index('Unique User ID')]
+            if not first_name or not last_name or not unique_id:
+                print("Roster file must contain a first name, last name, and unique user id for each student.")
+                return False
+        print("Roster file seems valid.")
+        return True
+
+
 def getGradedAssignments(grades_file, import_type)->list[int]:
     """Open the grades file and get the list of graded assignments"""
     graded_indices = []
@@ -119,50 +165,7 @@ def get_ProjectStem_graded_assignments(grades_file)->list[int]:
     return [ i for i in range(2, num_columns)]
     
 
-def roster_file_is_valid(roster_file)->bool:
-    """Open the roster file and ensure all the students have a first name, last
-    name and unique user id. """
-    with open(roster_file, 'r') as file:
-        reader = csv.reader(file)
-        header = next(reader)
-        if 'First Name' not in header or 'Last Name' not in header or 'Unique User ID' not in header:
-            print("Roster file must contain 'First Name', 'Last Name', and 'Unique User ID' columns.")
-            return False
-        if header[2] != 'Unique User ID':
-            print("Roster file must contain 'Unique User ID' in the third column of the header row.")
-            return False
-        for row in reader:
-            if len(row) < 3:
-                print("Roster file must contain at least 3 columns.")
-                return False
-            #ensure that first last and unique id arn't empty strings
-            first_name = row[header.index('First Name')]
-            last_name = row[header.index('Last Name')]
-            unique_id = row[header.index('Unique User ID')]
-            if not first_name or not last_name or not unique_id:
-                print("Roster file must contain a first name, last name, and unique user id for each student.")
-                return False
-        print("Roster file seems valid.")
-        return True
-
 
 
 if __name__ == "__main__":
-    # Get information from the user
-    import_type = get_grade_import_type()
-    roster_file, grades_file, output_file = get_file_paths()
-    assignment_range = get_assignment_range(import_type)
-    # Check if the grades file is valid
-    if not grade_file_is_valid(grades_file):
-        print("Invalid grades file. Please check the file and try again.")
-        exit(1)
-    # Check if the roster file is valid
-    if not roster_file_is_valid(roster_file):
-        print("Invalid roster file. Please check the file and try again.")
-        exit(1)
-    # Get the indices of the assignments that are not graded
-    graded_assigments = getGradedAssignments(grades_file, import_type)
-    print(f"Graded assignments: {graded_assigments}")
-
-
-
+    main()
