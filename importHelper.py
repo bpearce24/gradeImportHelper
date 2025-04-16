@@ -3,6 +3,7 @@ via a CSV file easier. """
 
 import csv
 import os
+import re
 
 from typing import List
 
@@ -18,7 +19,7 @@ def main():
     # Get information from the user
     import_type = get_grade_import_type()
     roster_file, grades_file, output_file = get_file_paths()
-    assignment_range = get_assignment_range(import_type)
+    #assignment_range = get_assignment_range(import_type)
     # Check if the grades file is valid
     if not grade_file_is_valid(grades_file):
         print("Invalid grades file. Please check the file and try again.")
@@ -27,9 +28,19 @@ def main():
     if not roster_file_is_valid(roster_file):
         print("Invalid roster file. Please check the file and try again.")
         exit(1)
-    # Get the indices of the assignments that are not graded
-    graded_assigments = getGradedAssignments(grades_file, import_type)
-    print(f"Graded assignments: {graded_assigments}")
+    # Get the indices of the assignments that are for a grade
+    graded_assignments = getGradedAssignments(grades_file, import_type)
+    print("Graded assignments: ", graded_assignments)
+    # Build a dictionary of students from the grade file using the email as the 
+    # key and the row as the value to enable quick lookups
+    roster = get_students_in_roster(roster_file)
+    if import_type == 'C':
+        grades = get_codehs_grades_from_file(grades_file)
+        build_CodeHS_csv(roster, grades, graded_assignments, output_file)
+    elif import_type == 'P':
+        # TODO: Implement the rest of ProjectStem later
+        print("ProjectStem import is not yet implemented.")
+
 
 
 def get_grade_import_type():
@@ -40,6 +51,7 @@ def get_grade_import_type():
             return grade_import_type
         else:
             print("Invalid input. Please enter 'P' for ProjectStem or 'C' for CodeHS.")
+
 
 def get_file_paths():
     """Prompt the user for file paths and return them."""
@@ -75,6 +87,7 @@ def get_assignment_range(import_type):
         except ValueError:
             print(error_message)
 
+
 def check_assignment_range(first_assignment, second_assignment):
     """Check if the assignment range is valid."""
     # Split the assignment numbers into parts
@@ -86,6 +99,7 @@ def check_assignment_range(first_assignment, second_assignment):
         print("Invalid assignment range. The first assignment should be less than the second assignment.")
         return False
     return True
+
 
 def grade_file_is_valid(gradesfile):
     """Do some basic checks of the grades file to ensure it is valid."""
@@ -105,30 +119,106 @@ def grade_file_is_valid(gradesfile):
 
 
 def roster_file_is_valid(roster_file)->bool:
-    """Open the roster file and ensure all the students have a first name, last
-    name and unique user id. """
+    """Open the roster file and ensure: 
+    * the headers are all there
+    * all the students have an email, first name, last and student id
+    * the student id in the email matches the student id in the unique id"""
+    is_valid = True
     with open(roster_file, 'r') as file:
         reader = csv.reader(file)
-        header = next(reader)
-        if 'First Name' not in header or 'Last Name' not in header or 'Unique User ID' not in header:
-            print("Roster file must contain 'First Name', 'Last Name', and 'Unique User ID' columns.")
-            return False
-        if header[2] != 'Unique User ID':
-            print("Roster file must contain 'Unique User ID' in the third column of the header row.")
-            return False
-        for row in reader:
-            if len(row) < 3:
-                print("Roster file must contain at least 3 columns.")
-                return False
-            #ensure that first last and unique id arn't empty strings
-            first_name = row[header.index('First Name')]
-            last_name = row[header.index('Last Name')]
-            unique_id = row[header.index('Unique User ID')]
-            if not first_name or not last_name or not unique_id:
-                print("Roster file must contain a first name, last name, and unique user id for each student.")
-                return False
+        is_valid = (validate_headers(file, reader) and 
+                    validate_student_ids(file, reader) and
+                    validate_student_data(file, reader))
+        
+    # TODO: Make sure there is at least one student.
+    # TODO: Make sure there are no duplicate emails or unique ids.
+    if is_valid:
         print("Roster file seems valid.")
         return True
+    else:
+        return False
+    
+
+def validate_headers(file, reader)->bool:
+    file.seek(0)  # Reset the reader to the beginning of the file
+    header_row = next(reader)
+    required_headers = [
+        'Student Email',
+        'First Name',
+        'Last Name',
+        'Unique User ID'
+    ]
+    file_is_missing_headers = False
+    
+    # make to strip the headers of any whitespace
+    for header in header_row:
+        header = header.strip()
+
+    for header in required_headers:
+        if header not in header_row:
+            print(f"Roster file must contain '{header}' in the header row.")
+            file_is_missing_headers = True
+    if file_is_missing_headers:
+        print("Roster file is missing required headers. Please check the file and try again.")
+        return False
+    if header_row[0].strip() != 'Student Email':
+        print("Roster file must contain 'Student Email' in the first column of the header row.")
+        return False
+    if header_row[3].strip() != 'Unique User ID':
+        print("Roster file must contain 'Unique User ID' in the fourth column of the header row.")
+        return False
+    return True
+
+def validate_student_data(file, reader)->bool:
+    file.seek(0)  # Reset the reader to the beginning of the file
+    header_row = next(reader)  # Skip the header row
+    is_data_missing = False
+    for i, row in enumerate(reader):
+        if len(row) < 4:
+            print(f"Missing data in row {i+1}. Roster file should contain 4 columns for each student.")
+            #ensure that the student email and  unique id arn't empty strings
+            is_data_missing = True
+            continue
+        unique_id = row[header_row.index('Unique User ID')]
+        student_email = row[header_row.index('Student Email')]
+        if (not student_email or not unique_id):
+            print(f"Missing data in row {i+1}. Email and Unique Id should not be empty.")
+            print("Please check the file and try again.")
+            is_data_missing = True
+    if is_data_missing:
+        print("Roster file is missing required data. Please check the file and try again.")
+        return False
+    return True
+
+
+def validate_student_ids(file, reader):
+    #The email and the unique id both have a student id number. Since the email
+    # is used to link the student in the roster files to the student and grades
+    # in the grades file. As such, the program must make sure the id number in
+    # the email is the same as the one in the unique id. If the program doesn't
+    # the wrong grade will be linked to the wrong student.
+    # The email is formated as such: XXYYYYY@<domain> where XX are two letters,
+    # YYYYY is the student id number (note that there may be more than 5
+    # numbers) and <domain> is the domain of the email.
+    # The unique id is formated as such: 1_YYYYY where YYYYY is the student id number
+    regex = r'^[a-zA-Z]{2}(\d+)(@.*)$'
+    file.seek(0)  # Reset the reader to the beginning of the file
+    header_row = next(reader)  # Skip the header row
+    for i, row in enumerate(reader):
+        student_email = row[header_row.index('Student Email')]
+        unique_id = row[header_row.index('Unique User ID')]
+        match = re.match(regex, student_email)
+        if match:
+            student_id = match.group(1)
+            if unique_id != "1_" + student_id:
+                print(f"Student id in email and unique id do not match in row {i+1}.")
+                print("Please check the file and try again.")
+                return False
+        else:
+            print(f"Invalid email format in row {i+1}.")
+            print("Please check the file and try again.")
+            return False
+    return True
 
 
 def getGradedAssignments(grades_file, import_type)->list[int]:
@@ -165,7 +255,75 @@ def get_ProjectStem_graded_assignments(grades_file)->list[int]:
     return [ i for i in range(2, num_columns)]
     
 
+def get_students_in_roster(roster_file)->dict[str, List[str]]:
+    """Open the roster file and get the list of students"""
+    students = {}
+    with open(roster_file, 'r') as file:
+        reader = csv.reader(file)
+        header_row = next(reader)
+        students["header"] = header_row
+        for row in reader:
+            # Get the email
+            student_email = row[0]
+            # Add the student to the dictionary
+            students[student_email] = row
+    return students
 
+
+def get_codehs_grades_from_file(grades_file)->dict[str, List[str]]:
+    """Open the grades file and return a dictionary of students with their email
+    as the key"""
+    with open(grades_file, 'r') as file:
+        reader = csv.reader(file)
+        grades = {}
+        grades["header"] = next(reader)
+        # Get the grades for each student
+        # Skip the next two rows
+        _ = next(reader)
+        _ = next(reader)
+        for row in reader:
+            # Get the email and unique id
+            student_email = row[2]
+            # Add the student to the dictionary
+            grades[student_email] = row
+    return grades
+
+def build_CodeHS_csv(roster, grades, graded_assignments, output_file):
+    """Build a CSV file for CodeHS
+    Parameters:
+        * roster (dict): A dictionary of students with their email as the key
+          and the row as the value.
+        * grades (dict) A dictionary of student grades with the email as the key
+        and the row as the value. The first row is the header and contains the
+          every assignment (including ungraded assignments, it will need to be
+          filterd).
+        * graded_assignments (list): A list of indices of the assignments that 
+          included in the gradebook.
+        * output_file (str): The name of the output file."""
+    with open(output_file, 'w', newline='') as file:
+        writer = csv.writer(file)
+        header = build_CodeHS_csv_header(grades, graded_assignments)
+        writer.writerow(header)
+        #for student in roster:
+            #row = build_CodeHS_row(student, grades, graded_assignments)
+
+
+def build_CodeHS_csv_header(grades, graded_assignments):
+    # Get the names of the graded assignments.
+    assignments = []
+    for i in graded_assignments:
+        assignments.append(grades["header"][i])
+    # Write the header
+    header_row = ([ 
+        'Email',
+        'First Name',
+        'Last Name',
+        'Unique User ID']
+        + assignments)
+    return header_row
+
+def build_CodeHS_row(student, roster, grades, graded_assignments):
+    pass
 
 if __name__ == "__main__":
     main()
