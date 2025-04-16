@@ -80,7 +80,8 @@ def get_file_paths():
     """Prompt the user for file paths and return them."""
     roster_file = get_file_path("Enter the path to the roster file: ")
     grades_file = get_file_path("Enter the path to the grades file: ")
-    output_file = input("Enter the name of the output file: ")
+    output_file = os.path.splitext(grades_file)[0] + "_import.csv"
+    print(output_file)
     return roster_file, grades_file, output_file
 
 
