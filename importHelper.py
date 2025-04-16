@@ -25,10 +25,14 @@ def main():
     if not grade_file_is_valid(grades_file):
         print("Invalid grades file. Please check the file and try again.")
         exit(1)
+    else:
+        print("Grades file seems valid.")
     # Check if the roster file is valid
     if not roster_file_is_valid(roster_file):
         print("Invalid roster file. Please check the file and try again.")
         exit(1)
+    else:
+        print("Roster file seems valid.")
     # Get the indices of the assignments that are for a grade
     graded_assignments = getGradedAssignments(grades_file, import_type)
     # Build a dictionary of students from the grade file using the email as the
@@ -40,6 +44,10 @@ def main():
         missing_students = build_CodeHS_csv(
             roster, grades, graded_assignments, output_file
         )
+        # TODO: consider if we want to do some analysis looking for obvious\
+        # errors in the grades file. eg scores that are a order of magnitude
+        # greater than the rest of the class....
+
         if len(missing_students) <= 10 and len(missing_students) > 0:
             print("The following students were not found in the grades file:")
             for student in missing_students:
@@ -124,6 +132,7 @@ def grade_file_is_valid(gradesfile):
     """Do some basic checks of the grades file to ensure it is valid."""
     # Check if the length of each row is the same
     with open(gradesfile, "r") as file:
+        is_valid = True
         reader = csv.reader(file)
         header = next(reader)
         # Get the number of columns in the header
@@ -133,10 +142,8 @@ def grade_file_is_valid(gradesfile):
                 print(
                     f"Invalid grades file, number of columns in row {i} doesn't match header."
                 )
-                print("Please check the file and try again.")
-                return False
-    print("Grades file seems valid.")
-    return True
+                is_valid = False
+    return is_valid
 
 
 def roster_file_is_valid(roster_file) -> bool:
@@ -155,11 +162,7 @@ def roster_file_is_valid(roster_file) -> bool:
 
     # TODO: Make sure there is at least one student.
     # TODO: Make sure there are no duplicate emails or unique ids.
-    if is_valid:
-        print("Roster file seems valid.")
-        return True
-    else:
-        return False
+    return is_valid
 
 
 def validate_headers(file, reader) -> bool:
