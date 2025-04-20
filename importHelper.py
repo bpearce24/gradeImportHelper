@@ -281,6 +281,7 @@ def get_CodeHS_graded_assignments(grades_file) -> list[int]:
                 "check for understanding",
                 "exercise",
                 "unit quiz",
+                "challenge",
             ]:
                 graded_indices.append(i)
         return graded_indices
