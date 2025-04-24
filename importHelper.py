@@ -395,8 +395,10 @@ def build_CodeHS_row(student, grades, graded_assignments):
     for i in graded_assignments:
         # Get the grade for the assignment
         grade_value = grades[student_email][i].strip()
-        if grade_value == "-" or grade_value == "N/A":
+        if grade_value == "-":
             grade_value = ""
+        if grade_value == "N/A":
+            grade_value = "Exempt"
         row.append(grade_value)
     return row
 
